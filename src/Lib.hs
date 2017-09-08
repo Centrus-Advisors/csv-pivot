@@ -11,6 +11,7 @@ import Data.Time (diffUTCTime, getCurrentTime)
 import Data.Vector (Vector, (!))
 import qualified Data.Vector as Vector
 import System.Environment (getArgs)
+import Text.Regex.Posix ((=~))
 
 someFunc :: IO ()
 someFunc =  do
@@ -47,7 +48,7 @@ someFunc =  do
                             putStrLn "Success"
 
 
-processData :: String -> Vector (Vector BL.ByteString) -> [(BL.ByteString, String, BL.ByteString, BL.ByteString)]
+processData :: String -> Vector (Vector BL.ByteString) -> [(String, String, BL.ByteString, BL.ByteString)]
 processData strResourceName raw =
     Vector.toList $ indexedFoldMap processRow raw
     where
@@ -57,7 +58,7 @@ processData strResourceName raw =
             Vector.imap createCell $ Vector.tail row
             where
                 date =
-                    Vector.head row
+                    (flip (=~) "(\\w|-)+" . show . Vector.head $ row) :: String
 
                 createCell colIndex cellContent =
                     (date, "PATH_" ++ show rowIndex , cellContent, resourceName)
