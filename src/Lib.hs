@@ -39,7 +39,7 @@ someFunc =  do
                     Right value ->
                         do
                             putStrLn "Converting data..."
-                            writeFile fileTarget . unpack . encode . processData resourceName $ value
+                            BL.writeFile fileTarget . encode . processData resourceName $ value
                             completionTime <- getCurrentTime
 
                             let timeDiff = show . floor . toRational . diffUTCTime completionTime  $ startTime
@@ -48,22 +48,31 @@ someFunc =  do
                             putStrLn "Success"
 
 
-processData :: String -> Vector (Vector BL.ByteString) -> [(String, String, BL.ByteString, BL.ByteString)]
+processData :: String -> Vector (Vector BL.ByteString) -> [ (BL.ByteString, BL.ByteString, BL.ByteString, BL.ByteString) ]
 processData strResourceName raw =
-    Vector.toList $ indexedFoldMap processRow raw
+    Vector.toList $ Vector.concatMap processRow raw
     where
         resourceName = pack strResourceName
 
-        processRow rowIndex row =
-            Vector.imap createCell $ Vector.tail row
+        processRow :: Vector BL.ByteString -> Vector (BL.ByteString, BL.ByteString, BL.ByteString, BL.ByteString)
+        processRow row =
+            mappend (Vector.singleton firstContent)
+                $ Vector.imap (createCell . (1+))
+                $ Vector.tail row
+
             where
                 date =
-                    (flip (=~) "(\\w|-)+" . show . Vector.head $ row) :: String
+                    pack $ flip (=~) "(\\w|-)+" $ show $ Vector.head row
+
+                firstValue =
+                    pack $ (++) " " $ flip (=~) "\\w+\\.\\w+" $ show $ Vector.head row
+
+                firstContent =
+                    createCell 0 firstValue
 
                 createCell colIndex cellContent =
-                    (date, "PATH_" ++ show rowIndex , cellContent, resourceName)
-
-
-indexedFoldMap :: Monoid m => (Int -> a -> m) -> Vector a -> m
-indexedFoldMap f v =
-    foldl mappend mempty $ Vector.imap f v
+                    (date
+                    , pack $ "PATH_" ++ show colIndex
+                    , cellContent
+                    , resourceName
+                    )
